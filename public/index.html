@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Xray Gateway</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+    <div class="card">
+
+        <h1>⚡ Xray Gateway</h1>
+
+        <div class="sub">
+            WebSocket Tunnel
+        </div>
+
+        <div class="status">
+            <span id="statusIcon">⏳</span>
+            <span id="statusText">
+                Checking...
+            </span>
+        </div>
+
+        <div class="qr">
+            <div id="qrcode">
+                <div class="loading">
+                    Loading...
+                </div>
+            </div>
+        </div>
+
+        <div class="info">
+
+            <div class="row">
+                <span class="key">
+                    User
+                </span>
+                <span id="user" class="val">
+                    -
+                </span>
+            </div>
+
+            <div class="row">
+                <span class="key">
+                    Password
+                </span>
+                <span id="password" class="val">
+                    -
+                </span>
+            </div>
+
+            <div class="row">
+                <span class="key">
+                    Path
+                </span>
+                <span id="path" class="val">
+                    -
+                </span>
+            </div>
+
+        </div>
+
+        <div class="timer">
+            <span>Status:</span>
+            <span id="countdown">
+                --
+            </span>
+        </div>
+
+        <button id="actionButton">
+            Loading...
+        </button>
+
+        <div class="footer">
+            Xray · WARP · Cloudflare
+        </div>
+
+    </div>
+
+    <!-- 加载 QRCode 库 -->
+    <script>
+        (function loadQRCode() {
+            if (typeof QRCode !== 'undefined') {
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js';
+            script.onerror = function() {
+                const localScript = document.createElement('script');
+                localScript.src = '/libs/qrcode.min.js';
+                document.head.appendChild(localScript);
+            };
+            document.head.appendChild(script);
+        })();
+    </script>
+    <script src="/app.js"></script>
+
+</body>
+</html>
