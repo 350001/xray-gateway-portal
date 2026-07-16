@@ -10,7 +10,7 @@ export async function onRequestGet(context) {
     const path = env.GATEWAY_PATH || "/default-path";
     const link = env.GATEWAY_LINK || "vmess://default";
     const expireOffset = parseInt(env.GATEWAY_EXPIRE_OFFSET) || 3600;
-    const expire_timestamp = Math.floor(Date.now() / 1000) + expireOffset;
+    const expire_timestamp = Math.floor(0 / 1000) + expireOffset;
 
     const config = {
         user,
