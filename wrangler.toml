@@ -2,10 +2,7 @@ name = "xray-gateway"
 main = "src/index.js"
 compatibility_date = "2026-07-15"
 
-assets = {
-  directory = "./public",
-  not_found_handling = "404-page"
-}
+assets = {directory = "./public"}
 
 [vars]
 GITHUB_OWNER = "350001"
