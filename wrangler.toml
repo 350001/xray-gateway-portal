@@ -1,11 +1,11 @@
-{
-  "name": "xray-gateway-portal",
-  "compatibility_date": "2026-07-15",
-  "pages_build_output_dir": "./public",
-  "vars": {
-    "GITHUB_OWNER": "350001",
-    "GITHUB_REPO": "001",
-    "WORKFLOW_FILE": "xray-warp-gateway.yml",
-    "GITHUB_BRANCH": "main"
-  }
-}
+name = "xray-gateway"
+main = "src/index.js"
+compatibility_date = "2026-07-15"
+
+assets = { directory = "./public" }
+
+[vars]
+GITHUB_OWNER = "350001"
+GITHUB_REPO = "001"
+WORKFLOW_FILE = "xray-warp-gateway.yml"
+GITHUB_BRANCH = "main"
