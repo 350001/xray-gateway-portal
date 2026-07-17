@@ -10,42 +10,51 @@ const POLL_INTERVAL = 5000;
 // 状态
 // ============================================
 const state = {
-    gateway: null,           // 网关配置数据
-    timer: null,             // 倒计时定时器
-    polling: null,           // 轮询定时器
-    attempts: 0,             // 轮询尝试次数
-    countdownText: "--",     // 倒计时显示文本（统一由updateUI更新）
-    expired: false           // 是否已过期（用于显示"Expired"）
+    gateway: null,
+    timer: null,
+    polling: false,
+    pollTimer: null,
+    attempts: 0,
+    expired: false
 };
 
 const $ = id => document.getElementById(id);
 
+const ui = {
+    statusIcon: $("statusIcon"),
+    statusText: $("statusText"),
+    actionButton: $("actionButton"),
+    user: $("user"),
+    password: $("password"),
+    path: $("path"),
+    countdown: $("countdown"),
+    qrcode: $("qrcode"),
+    timerLabel: document.querySelector(".timer span:first-child")
+};
+
 // ============================================
-// 统一更新所有界面
+// UI
 // ============================================
 function updateUI() {
-    const isReady = !!state.gateway;
-    const isWaiting = !!state.polling;
-    const btn = $("actionButton");
+    const ready = !!state.gateway;
+    const waiting = state.polling;
+    const btn = ui.actionButton;
 
-    // 1. 状态图标和文字
-    if (isReady) {
-        $("statusIcon").textContent = "🟢";
-        $("statusText").textContent = "Active";
-    } else if (isWaiting) {
-        $("statusIcon").textContent = "🟡";
-        $("statusText").textContent = `Waiting... (${state.attempts}/${MAX_POLL})`;
+    if (ready) {
+        ui.statusIcon.textContent = "🟢";
+    } else if (waiting) {
+        ui.statusIcon.textContent = "🟡";
+        ui.statusText.textContent = `Waiting... (${state.attempts}/${MAX_POLL})`;
     } else {
-        $("statusIcon").textContent = "🔴";
-        $("statusText").textContent = "Unavailable";
+        ui.statusIcon.textContent = "🔴";
+        ui.statusText.textContent = state.expired ? "Expired" : "Unavailable";
     }
 
-    // 2. 按钮
-    if (isReady) {
-        btn.textContent = "Copy";
+    if (ready) {
+        btn.textContent = "Copy Config";
         btn.onclick = copyConfig;
         btn.disabled = false;
-    } else if (isWaiting) {
+    } else if (waiting) {
         btn.textContent = "Starting...";
         btn.disabled = true;
     } else {
@@ -54,181 +63,174 @@ function updateUI() {
         btn.disabled = false;
     }
 
-    // 3. 信息栏（统一根据 gateway 更新）
-    if (state.gateway) {
-        $("user").textContent = state.gateway.user || "-";
-        $("password").textContent = state.gateway.password || "-";
-        $("path").textContent = state.gateway.path || "-";
+    const d = state.gateway || {};
+    ui.user.textContent = d.user || "-";
+    ui.password.textContent = d.password || "-";
+    ui.path.textContent = d.path || "-";
+
+    if (ready) {
+        ui.timerLabel.textContent = "Expires in:";
+        ui.countdown.style.color = "#60a5fa";
     } else {
-        $("user").textContent = "-";
-        $("password").textContent = "-";
-        $("path").textContent = "-";
+        ui.timerLabel.textContent = "Status:";
+        ui.countdown.textContent = "--";
+        ui.countdown.style.color = "#94a3b8";
     }
 
-    // 4. 倒计时显示（统一由这里控制）
-    if (state.expired) {
-        state.countdownText = "Expired";
-    } else if (!state.gateway) {
-        state.countdownText = "--";
-    }
-    $("countdown").textContent = state.countdownText;
-
-    // 5. 二维码
-    renderQR(isReady ? state.gateway.link : null);
+    renderQR(ready ? d.link : null);
 }
 
 // ============================================
-// 渲染二维码
+// QR
 // ============================================
+let placeholderHTML = null;
+let currentQR = null;
+
 function renderQR(link) {
-    const box = $("qrcode");
-    box.innerHTML = "";
+    if (currentQR === link) return;
+    currentQR = link;
+
     if (!link) {
-        new QRCode(box, { text: "unavailable", width: 220, height: 220 });
-        const el = box.querySelector('img') || box.querySelector('canvas');
-        if (el) { el.style.filter = 'blur(6px)'; el.style.opacity = '0.7'; }
+        if (placeholderHTML) {
+            ui.qrcode.innerHTML = placeholderHTML;
+            return;
+        }
+
+        ui.qrcode.innerHTML = "";
+        new QRCode(ui.qrcode, { text: "unavailable", width: 220, height: 220 });
+
+        const el = ui.qrcode.querySelector("img") || ui.qrcode.querySelector("canvas");
+        if (el) {
+            el.style.filter = "blur(6px)";
+            el.style.opacity = "0.7";
+        }
+
+        placeholderHTML = ui.qrcode.innerHTML;
         return;
     }
-    new QRCode(box, { text: link, width: 220, height: 220 });
+
+    ui.qrcode.innerHTML = "";
+    new QRCode(ui.qrcode, { text: link, width: 220, height: 220 });
 }
 
 // ============================================
-// 加载网关配置
+// Gateway
 // ============================================
 async function loadGateway() {
     try {
         const res = await fetch(API_URL, { cache: "no-store" });
-        if (!res.ok) throw new Error("HTTP " + res.status);
+        if (!res.ok) throw new Error();
+
         const data = await res.json();
-        if (data.expire_timestamp * 1000 <= Date.now()) throw new Error("Expired");
+
+        if (!data.link || !Number.isFinite(Number(data.expire_timestamp)))
+            throw new Error();
+
+        if (Number(data.expire_timestamp) * 1000 <= Date.now())
+            throw new Error();
 
         state.gateway = data;
         state.expired = false;
-        startTimer(data.expire_timestamp);
+
+        startTimer(Number(data.expire_timestamp));
         updateUI();
         return true;
-    } catch (err) {
-        console.warn("Load gateway failed:", err.message);
+
+    } catch {
         state.gateway = null;
         state.expired = false;
+
+        clearInterval(state.timer);
+        state.timer = null;
+
+        ui.countdown.textContent = "--";
         updateUI();
         return false;
     }
 }
 
-// ============================================
-// 倒计时（更新 countdownText + 调用 updateUI）
-// ============================================
 function startTimer(expireTimestamp) {
     clearInterval(state.timer);
     const expire = expireTimestamp * 1000;
 
     state.timer = setInterval(() => {
         const remain = expire - Date.now();
+
         if (remain <= 0) {
             clearInterval(state.timer);
             state.timer = null;
             state.gateway = null;
             state.expired = true;
             updateUI();
-            setTimeout(loadGateway, 5000);
+            ui.countdown.textContent = "Expired";
+            ui.countdown.style.color = "#ef4444";
+            ui.statusText.textContent = "Expired";
             return;
         }
-        // 正常更新倒计时文本
+
         const m = Math.floor(remain / 60000);
         const s = Math.floor((remain % 60000) / 1000);
-        state.countdownText = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
-        $("countdown").textContent = state.countdownText; // 仅更新倒计时，不触发整体重绘
+        const text = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+
+        ui.countdown.textContent = text;
+        ui.statusText.textContent = text;
     }, 1000);
 }
 
-// ============================================
-// 复制配置
-// ============================================
 async function copyConfig() {
-    if (!state.gateway) {
-        toast("No configuration");
-        return;
-    }
+    if (!state.gateway) return;
+
     try {
         await navigator.clipboard.writeText(state.gateway.link);
-        toast("✅ Copied");
+        ui.statusText.textContent = "✅ Copied!";
     } catch {
-        toast("❌ Copy failed");
+        ui.statusText.textContent = "❌ Copy failed";
     }
+
+    setTimeout(updateUI, 2000);
 }
 
-// ============================================
-// 启动网关
-// ============================================
 async function start() {
     if (state.polling) return;
-    state.attempts = 0;
+
     state.gateway = null;
     state.expired = false;
+    state.attempts = 0;
     updateUI();
 
     try {
         const res = await fetch(START_URL, { method: "POST" });
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        toast("⏳ Starting...");
-        startPolling();
-    } catch (err) {
-        console.warn("Start failed:", err.message);
-        toast("❌ Start failed");
-        updateUI();
+        if (!res.ok) throw new Error();
+
+        state.polling = true;
+        poll();
+
+    } catch {
+        ui.statusText.textContent = "❌ Start failed";
+        setTimeout(updateUI, 3000);
     }
 }
 
-// ============================================
-// 轮询等待网关就绪
-// ============================================
-function startPolling() {
-    clearInterval(state.polling);
-    state.polling = setInterval(async () => {
-        state.attempts++;
-        if (state.attempts > MAX_POLL) {
-            clearInterval(state.polling);
-            state.polling = null;
-            toast("❌ Timeout");
-            updateUI();
-            return;
-        }
-        const ok = await loadGateway();
-        if (ok) {
-            clearInterval(state.polling);
-            state.polling = null;
-            toast("✅ Ready");
-            updateUI();
-            return;
-        }
-        updateUI(); // 更新等待进度
-    }, POLL_INTERVAL);
+async function poll() {
+    state.attempts++;
+    updateUI();
+
+    if (state.attempts > MAX_POLL) {
+        state.polling = false;
+        state.pollTimer = null;
+        ui.statusText.textContent = "❌ Timeout";
+        setTimeout(updateUI, 3000);
+        return;
+    }
+
+    if (await loadGateway()) {
+        state.polling = false;
+        state.pollTimer = null;
+        updateUI();
+        return;
+    }
+
+    state.pollTimer = setTimeout(poll, POLL_INTERVAL);
 }
 
-// ============================================
-// Toast 提示
-// ============================================
-function toast(msg) {
-    const old = document.querySelector('.toast');
-    if (old) old.remove();
-    const div = document.createElement("div");
-    div.className = "toast";
-    div.textContent = msg;
-    document.body.appendChild(div);
-    setTimeout(() => div.remove(), 3000);
-}
-
-// ============================================
-// 清理
-// ============================================
-function cleanup() {
-    clearInterval(state.timer);
-    clearInterval(state.polling);
-}
-
-// ============================================
-// 初始化
-// ============================================
 loadGateway();
-window.addEventListener('beforeunload', cleanup);
