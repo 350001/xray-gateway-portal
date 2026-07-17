@@ -10,10 +10,10 @@ const POLL_INTERVAL = 5000;
 // 状态
 // ============================================
 const state = {
-    gateway: null,      // 网关配置数据
-    timer: null,        // 倒计时定时器
-    polling: null,      // 轮询定时器
-    attempts: 0         // 轮询尝试次数
+    gateway: null,
+    timer: null,
+    polling: null,
+    attempts: 0
 };
 
 const $ = id => document.getElementById(id);
@@ -26,7 +26,6 @@ function updateUI() {
     const isWaiting = !!state.polling;
     const btn = $("actionButton");
 
-    // 状态图标和文字
     if (isReady) {
         $("statusIcon").textContent = "🟢";
         $("statusText").textContent = "Active";
@@ -38,7 +37,6 @@ function updateUI() {
         $("statusText").textContent = "Unavailable";
     }
 
-    // 按钮
     if (isReady) {
         btn.textContent = "Copy";
         btn.onclick = copyConfig;
@@ -52,7 +50,6 @@ function updateUI() {
         btn.disabled = false;
     }
 
-    // 二维码
     renderQR(isReady ? state.gateway.link : null);
 }
 
@@ -63,15 +60,16 @@ function renderQR(link) {
     const box = $("qrcode");
     box.innerHTML = "";
 
-    // 没有有效链接 → 生成模糊占位
     if (!link) {
         new QRCode(box, { text: "unavailable", width: 220, height: 220 });
         const el = box.querySelector('img') || box.querySelector('canvas');
-        if (el) { el.style.filter = 'blur(6px)'; el.style.opacity = '0.7'; }
+        if (el) {
+            el.style.filter = 'blur(6px)';
+            el.style.opacity = '0.7';
+        }
         return;
     }
 
-    // 有效链接 → 生成清晰二维码
     new QRCode(box, { text: link, width: 220, height: 220 });
 }
 
@@ -86,21 +84,14 @@ async function loadGateway() {
         const data = await res.json();
         if (data.expire_timestamp * 1000 <= Date.now()) throw new Error("Expired");
 
-        // 保存配置
         state.gateway = data;
-
-        // 更新信息栏
         $("user").textContent = data.user || "-";
         $("password").textContent = data.password || "-";
         $("path").textContent = data.path || "-";
 
-        // 启动倒计时
         startTimer(data.expire_timestamp);
-
-        // 更新界面
         updateUI();
         return true;
-
     } catch (err) {
         console.warn("Load gateway failed:", err.message);
         state.gateway = null;
@@ -111,7 +102,7 @@ async function loadGateway() {
 }
 
 // ============================================
-// 倒计时
+// 倒计时（优化：过期立即刷新 UI，不等待网络）
 // ============================================
 function startTimer(expireTimestamp) {
     clearInterval(state.timer);
@@ -123,7 +114,10 @@ function startTimer(expireTimestamp) {
         if (remain <= 0) {
             clearInterval(state.timer);
             state.timer = null;
-            loadGateway(); // 重新加载（会触发过期状态）
+            state.gateway = null;
+            $("countdown").textContent = "Expired";
+            updateUI();
+            setTimeout(() => loadGateway(), 3000);
             return;
         }
 
@@ -165,7 +159,6 @@ async function start() {
 
         toast("⏳ Starting...");
         startPolling();
-
     } catch (err) {
         console.warn("Start failed:", err.message);
         toast("❌ Start failed");
@@ -181,7 +174,6 @@ function startPolling() {
     state.polling = setInterval(async () => {
         state.attempts++;
 
-        // 超时
         if (state.attempts > MAX_POLL) {
             clearInterval(state.polling);
             state.polling = null;
@@ -190,7 +182,6 @@ function startPolling() {
             return;
         }
 
-        // 尝试加载
         const ok = await loadGateway();
         if (ok) {
             clearInterval(state.polling);
@@ -200,7 +191,6 @@ function startPolling() {
             return;
         }
 
-        // 更新等待进度
         updateUI();
     }, POLL_INTERVAL);
 }
