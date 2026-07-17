@@ -9,7 +9,7 @@ export default {
     }
 
     // 其他所有请求（包括 /api/gateway.json 静态文件）由 ASSETS 处理
-    return env.ASSETS.fetch(request);
+    //return env.ASSETS.fetch(request);
   }
 };
 
