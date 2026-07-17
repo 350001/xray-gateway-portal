@@ -15,6 +15,7 @@ function updateUI() {
 
     if (isReady) {
         $("statusIcon").textContent = "🟢";
+        $("statusText").textContent = "Active";
     } else if (isWaiting) {
         $("statusIcon").textContent = "🟡";
         $("statusText").textContent = `Waiting... (${state.attempts}/${MAX_POLL})`;
@@ -80,6 +81,7 @@ async function loadGateway() {
         state.expired = false;
         startTimer(data.expire_timestamp);
         updateUI();
+        toast("✅ Gateway ready");
         return true;
     } catch {
         state.gateway = null;
@@ -105,15 +107,14 @@ function startTimer(expireTimestamp) {
             timerLabel.textContent = "Status:";
             countdownEl.textContent = "Expired";
             countdownEl.style.color = "#ef4444";
-            $("statusText").textContent = "Expired";
             updateUI();
+            toast("⏳ Gateway expired");
             return;
         }
         const m = Math.floor(remain / 60000);
         const s = Math.floor((remain % 60000) / 1000);
         const text = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
         countdownEl.textContent = text;
-        $("statusText").textContent = text;
     }, 1000);
 }
 
@@ -121,11 +122,9 @@ async function copyConfig() {
     if (!state.gateway) return;
     try {
         await navigator.clipboard.writeText(state.gateway.link);
-        $("statusText").textContent = "✅ Copied!";
-        setTimeout(() => $("statusText").textContent = countdownEl.textContent, 2000);
+        toast("✅ Copied");
     } catch {
-        $("statusText").textContent = "❌ Copy failed";
-        setTimeout(() => updateUI(), 2000);
+        toast("❌ Copy failed");
     }
 }
 
@@ -140,12 +139,14 @@ async function start() {
     state.gateway = null;
     state.expired = false;
     updateUI();
+    toast("⏳ Starting gateway...");
 
     try {
         const res = await fetch(START_URL, { method: "POST" });
         if (!res.ok) throw new Error();
         startPolling();
     } catch {
+        toast("❌ Start failed");
         $("statusText").textContent = "❌ Start failed";
         setTimeout(() => updateUI(), 3000);
     }
@@ -161,6 +162,7 @@ async function poll() {
     state.attempts++;
     if (state.attempts > MAX_POLL) {
         state.pollingTimer = null;
+        toast("❌ Timeout");
         $("statusText").textContent = "❌ Timeout";
         setTimeout(() => updateUI(), 3000);
         return;
@@ -168,10 +170,21 @@ async function poll() {
     const ok = await loadGateway();
     if (ok) {
         state.pollingTimer = null;
+        toast("✅ Gateway started successfully");
         return;
     }
     state.pollingTimer = setTimeout(poll, POLL_INTERVAL);
     updateUI();
+}
+
+function toast(msg) {
+    const old = document.querySelector('.toast');
+    if (old) old.remove();
+    const div = document.createElement("div");
+    div.className = "toast";
+    div.textContent = msg;
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 3000);
 }
 
 function cleanup() {
