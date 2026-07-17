@@ -1,177 +1,236 @@
-// app.js - engineered version
+// ============================================
+// 配置
+// ============================================
+const API_URL = "/api/gateway.json";
+const START_URL = "/start";
+const MAX_POLL = 30;
+const POLL_INTERVAL = 5000;
 
-const API_URL="/api/gateway.json";
-const START_URL="/start";
-const MAX_POLL=30;
-const POLL_INTERVAL=5000;
-
-const $=id=>document.getElementById(id);
-const ui={
- statusIcon:$("statusIcon"),
- statusText:$("statusText"),
- actionButton:$("actionButton"),
- user:$("user"),
- password:$("password"),
- path:$("path"),
- countdown:$("countdown"),
- qrcode:$("qrcode"),
- timerLabel:document.querySelector(".timer span:first-child")
+// ============================================
+// 状态
+// ============================================
+const state = {
+    gateway: null,
+    timer: null,
+    polling: false,
+    pollTimer: null,
+    attempts: 0,
+    expired: false
 };
 
-const state={
- gateway:null,
- timer:null,
- polling:false,
- pollTimer:null,
- attempts:0,
- expired:false,
- qrLink:null,
- qrPlaceholder:null
+const $ = id => document.getElementById(id);
+
+const ui = {
+    statusIcon: $("statusIcon"),
+    statusText: $("statusText"),
+    actionButton: $("actionButton"),
+    user: $("user"),
+    password: $("password"),
+    path: $("path"),
+    countdown: $("countdown"),
+    qrcode: $("qrcode"),
+    timerLabel: document.querySelector(".timer span:first-child")
 };
 
-function statusMode(){
- if(state.gateway) return "ready";
- if(state.polling) return "waiting";
- return state.expired?"expired":"unavailable";
+// ============================================
+// UI
+// ============================================
+function updateUI() {
+    const ready = !!state.gateway;
+    const waiting = state.polling;
+    const btn = ui.actionButton;
+
+    if (ready) {
+        ui.statusIcon.textContent = "🟢";
+    } else if (waiting) {
+        ui.statusIcon.textContent = "🟡";
+        ui.statusText.textContent = `Waiting... (${state.attempts}/${MAX_POLL})`;
+    } else {
+        ui.statusIcon.textContent = "🔴";
+        ui.statusText.textContent = state.expired ? "Expired" : "Unavailable";
+    }
+
+    if (ready) {
+        btn.textContent = "Copy Config";
+        btn.onclick = copyConfig;
+        btn.disabled = false;
+    } else if (waiting) {
+        btn.textContent = "Starting...";
+        btn.disabled = true;
+    } else {
+        btn.textContent = "Connect";
+        btn.onclick = start;
+        btn.disabled = false;
+    }
+
+    const d = state.gateway || {};
+    ui.user.textContent = d.user || "-";
+    ui.password.textContent = d.password || "-";
+    ui.path.textContent = d.path || "-";
+
+    if (ready) {
+        ui.timerLabel.textContent = "Expires in:";
+        ui.countdown.style.color = "#60a5fa";
+    } else {
+        ui.timerLabel.textContent = "Status:";
+        ui.countdown.textContent = "--";
+        ui.countdown.style.color = "#94a3b8";
+    }
+
+    renderQR(ready ? d.link : null);
 }
 
-function updateUI(){
- const mode=statusMode();
- const d=state.gateway||{};
- const btn=ui.actionButton;
+// ============================================
+// QR
+// ============================================
+let placeholderHTML = null;
+let currentQR = null;
 
- const cfg={
-  ready:["🟢","","Copy Config",copyConfig,false],
-  waiting:["🟡",`Waiting... (${state.attempts}/${MAX_POLL})`,"Starting...",null,true],
-  expired:["🔴","Expired","Connect",start,false],
-  unavailable:["🔴","Unavailable","Connect",start,false]
- }[mode];
+function renderQR(link) {
+    if (currentQR === link) return;
+    currentQR = link;
 
- ui.statusIcon.textContent=cfg[0];
- if(cfg[1]) ui.statusText.textContent=cfg[1];
- btn.textContent=cfg[2];
- btn.onclick=cfg[3];
- btn.disabled=cfg[4];
+    if (!link) {
+        if (placeholderHTML) {
+            ui.qrcode.innerHTML = placeholderHTML;
+            return;
+        }
 
- ui.user.textContent=d.user||"-";
- ui.password.textContent=d.password||"-";
- ui.path.textContent=d.path||"-";
+        ui.qrcode.innerHTML = "";
+        new QRCode(ui.qrcode, { text: "unavailable", width: 220, height: 220 });
 
- const ready=mode==="ready";
- ui.timerLabel.textContent=ready?"Expires in:":"Status:";
- if(!ready){
-   ui.countdown.textContent="--";
-   ui.countdown.style.color="#94a3b8";
- }
- renderQR(ready?d.link:null);
+        const el = ui.qrcode.querySelector("img") || ui.qrcode.querySelector("canvas");
+        if (el) {
+            el.style.filter = "blur(6px)";
+            el.style.opacity = "0.7";
+        }
+
+        placeholderHTML = ui.qrcode.innerHTML;
+        return;
+    }
+
+    ui.qrcode.innerHTML = "";
+    new QRCode(ui.qrcode, { text: link, width: 220, height: 220 });
 }
 
-function renderQR(link){
- if(state.qrLink===link) return;
- state.qrLink=link;
- const box=ui.qrcode;
- if(!link){
-   if(state.qrPlaceholder){box.innerHTML=state.qrPlaceholder;return;}
-   box.innerHTML="";
-   new QRCode(box,{text:"unavailable",width:220,height:220});
-   const el=box.querySelector("img,canvas");
-   if(el){el.style.filter="blur(6px)";el.style.opacity=".7";}
-   state.qrPlaceholder=box.innerHTML;
-   return;
- }
- box.innerHTML="";
- new QRCode(box,{text:link,width:220,height:220});
+// ============================================
+// Gateway
+// ============================================
+async function loadGateway() {
+    try {
+        const res = await fetch(API_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error();
+
+        const data = await res.json();
+
+        if (!data.link || !Number.isFinite(Number(data.expire_timestamp)))
+            throw new Error();
+
+        if (Number(data.expire_timestamp) * 1000 <= Date.now())
+            throw new Error();
+
+        state.gateway = data;
+        state.expired = false;
+
+        startTimer(Number(data.expire_timestamp));
+        updateUI();
+        return true;
+
+    } catch {
+        state.gateway = null;
+        state.expired = false;
+
+        clearInterval(state.timer);
+        state.timer = null;
+
+        ui.countdown.textContent = "--";
+        updateUI();
+        return false;
+    }
 }
 
-async function loadGateway(){
- try{
-  const r=await fetch(API_URL,{cache:"no-store"});
-  if(!r.ok) throw 0;
-  const d=await r.json();
-  const exp=Number(d.expire_timestamp);
-  if(!d.link||!Number.isFinite(exp)||exp*1000<=Date.now()) throw 0;
-  state.gateway=d;
-  state.expired=false;
-  startTimer(exp);
-  updateUI();
-  return true;
- }catch{
-  clearInterval(state.timer);
-  state.timer=null;
-  state.gateway=null;
-  state.expired=false;
-  updateUI();
-  return false;
- }
+function startTimer(expireTimestamp) {
+    clearInterval(state.timer);
+    const expire = expireTimestamp * 1000;
+
+    state.timer = setInterval(() => {
+        const remain = expire - Date.now();
+
+        if (remain <= 0) {
+            clearInterval(state.timer);
+            state.timer = null;
+            state.gateway = null;
+            state.expired = true;
+            updateUI();
+            ui.countdown.textContent = "Expired";
+            ui.countdown.style.color = "#ef4444";
+            ui.statusText.textContent = "Expired";
+            return;
+        }
+
+        const m = Math.floor(remain / 60000);
+        const s = Math.floor((remain % 60000) / 1000);
+        const text = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+
+        ui.countdown.textContent = text;
+        ui.statusText.textContent = text;
+    }, 1000);
 }
 
-function startTimer(exp){
- clearInterval(state.timer);
- const end=exp*1000;
- state.timer=setInterval(()=>{
-   const remain=end-Date.now();
-   if(remain<=0){
-      clearInterval(state.timer);
-      state.timer=null;
-      state.gateway=null;
-      state.expired=true;
-      updateUI();
-      ui.countdown.textContent="Expired";
-      ui.countdown.style.color="#ef4444";
-      ui.statusText.textContent="Expired";
-      return;
-   }
-   const m=Math.floor(remain/60000),s=Math.floor(remain%60000/1000);
-   const t=`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-   ui.countdown.textContent=t;
-   ui.statusText.textContent=t;
- },1000);
+async function copyConfig() {
+    if (!state.gateway) return;
+
+    try {
+        await navigator.clipboard.writeText(state.gateway.link);
+        ui.statusText.textContent = "✅ Copied!";
+    } catch {
+        ui.statusText.textContent = "❌ Copy failed";
+    }
+
+    setTimeout(updateUI, 2000);
 }
 
-async function copyConfig(){
- if(!state.gateway) return;
- try{
-  await navigator.clipboard.writeText(state.gateway.link);
-  ui.statusText.textContent="✅ Copied!";
- }catch{
-  ui.statusText.textContent="❌ Copy failed";
- }
- setTimeout(updateUI,2000);
+async function start() {
+    if (state.polling) return;
+
+    state.gateway = null;
+    state.expired = false;
+    state.attempts = 0;
+    updateUI();
+
+    try {
+        const res = await fetch(START_URL, { method: "POST" });
+        if (!res.ok) throw new Error();
+
+        state.polling = true;
+        poll();
+
+    } catch {
+        ui.statusText.textContent = "❌ Start failed";
+        setTimeout(updateUI, 3000);
+    }
 }
 
-async function start(){
- if(state.polling) return;
- state.gateway=null;
- state.expired=false;
- state.attempts=0;
- state.polling=true;
- updateUI();
- try{
-   const r=await fetch(START_URL,{method:"POST"});
-   if(!r.ok) throw 0;
-   poll();
- }catch{
-   state.polling=false;
-   ui.statusText.textContent="❌ Start failed";
-   setTimeout(updateUI,3000);
- }
-}
+async function poll() {
+    state.attempts++;
+    updateUI();
 
-async function poll(){
- state.attempts++;
- updateUI();
- if(state.attempts>MAX_POLL){
-   state.polling=false;
-   ui.statusText.textContent="❌ Timeout";
-   setTimeout(updateUI,3000);
-   return;
- }
- if(await loadGateway()){
-   state.polling=false;
-   updateUI();
-   return;
- }
- state.pollTimer=setTimeout(poll,POLL_INTERVAL);
+    if (state.attempts > MAX_POLL) {
+        state.polling = false;
+        state.pollTimer = null;
+        ui.statusText.textContent = "❌ Timeout";
+        setTimeout(updateUI, 3000);
+        return;
+    }
+
+    if (await loadGateway()) {
+        state.polling = false;
+        state.pollTimer = null;
+        updateUI();
+        return;
+    }
+
+    state.pollTimer = setTimeout(poll, POLL_INTERVAL);
 }
 
 loadGateway();
