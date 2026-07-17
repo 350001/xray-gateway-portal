@@ -9,7 +9,7 @@ const timerLabel = document.querySelector('.timer span:first-child');
 const countdownEl = $("countdown");
 
 function updateUI() {
-    const isReady = !!state.gateway;
+    const isReady = !!state.gateway && !state.expired;
     const isWaiting = !!state.pollingTimer;
     const btn = $("actionButton");
 
@@ -49,26 +49,25 @@ function updateUI() {
         countdownEl.style.color = state.expired ? "#ef4444" : "#94a3b8";
     }
 
-    renderQR(isReady ? state.gateway.link : null);
+    renderQR();
 }
 
-let qrCache = null;
-function renderQR(link) {
+function renderQR() {
     const box = $("qrcode");
-    if (!link) {
-        if (qrCache) {
-            box.innerHTML = qrCache;
-        } else {
-            box.innerHTML = "";
-            new QRCode(box, { text: "unavailable", width: 220, height: 220 });
-            const el = box.querySelector('img') || box.querySelector('canvas');
-            if (el) { el.style.filter = 'blur(6px)'; el.style.opacity = '0.7'; }
-            qrCache = box.innerHTML;
-        }
-        return;
+    const hasGateway = !!state.gateway;
+
+    if (hasGateway && !state.expired) {
+        box.innerHTML = "";
+        new QRCode(box, { text: state.gateway.link, width: 220, height: 220 });
+        box.style.filter = 'none';
+        box.style.opacity = '1';
+    } else if (hasGateway && state.expired) {
+        box.style.filter = 'blur(6px)';
+        box.style.opacity = '0.7';
+    } else {
+        box.style.filter = 'blur(6px)';
+        box.style.opacity = '0.7';
     }
-    box.innerHTML = "";
-    new QRCode(box, { text: link, width: 220, height: 220 });
 }
 
 async function loadGateway() {
@@ -102,11 +101,7 @@ function startTimer(expireTimestamp) {
         if (remain <= 0) {
             clearInterval(state.timer);
             state.timer = null;
-            state.gateway = null;
             state.expired = true;
-            timerLabel.textContent = "Status:";
-            countdownEl.textContent = "Expired";
-            countdownEl.style.color = "#ef4444";
             updateUI();
             toast("⏳ Gateway expired");
             return;
@@ -119,7 +114,7 @@ function startTimer(expireTimestamp) {
 }
 
 async function copyConfig() {
-    if (!state.gateway) return;
+    if (!state.gateway || state.expired) return;
     try {
         await navigator.clipboard.writeText(state.gateway.link);
         toast("✅ Copied");
