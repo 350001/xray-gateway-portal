@@ -41,11 +41,9 @@ function updateUI() {
     const link = state.gateway?.link || "N/A";
     $("config-link").textContent = link;
 
-    // countdown 显示控制
     if (isReady) {
         timerLabel.textContent = "Expires in:";
         countdownEl.style.color = "#60a5fa";
-        // 如果定时器还没开始，显示 "--"（但实际不会发生）
         if (!state.timer) {
             countdownEl.textContent = "--";
         }
@@ -105,6 +103,7 @@ function startTimer(expireTimestamp) {
         if (remain <= 0) {
             clearInterval(state.timer);
             state.timer = null;
+            state.gateway = null;
             state.expired = true;
             updateUI();
             toast("⏳ Gateway expired");
