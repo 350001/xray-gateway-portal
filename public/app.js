@@ -3,7 +3,7 @@ const START_URL = "/start";
 const MAX_POLL = 30;
 const POLL_INTERVAL = 5000;
 
-const state = { gateway: null, timer: null, pollingTimer: null, attempts: 0, expired: false };
+const state = { gateway: null, timer: null, pollingTimer: null, attempts: 0, expired: false, countdownText: "--" };
 const $ = id => document.getElementById(id);
 const timerLabel = $("timerLabel");
 const countdownEl = $("countdown");
@@ -43,15 +43,21 @@ function updateUI() {
 
     if (isReady) {
         timerLabel.textContent = "Expires in:";
-        countdownEl.style.color = "#60a5fa";
+        countdownEl.textContent = state.countdownText;
+        countdownEl.className = "";
     } else if (isWaiting) {
         timerLabel.textContent = "Status:";
         countdownEl.textContent = `Waiting... (${state.attempts}/${MAX_POLL})`;
-        countdownEl.style.color = "#f59e0b";
+        countdownEl.className = "waiting";
     } else {
         timerLabel.textContent = "Status:";
-        countdownEl.textContent = state.expired ? "Expired" : "Click Connect to start";
-        countdownEl.style.color = state.expired ? "#ef4444" : "#94a3b8";
+        if (state.expired) {
+            countdownEl.textContent = "Expired";
+            countdownEl.className = "expired";
+        } else {
+            countdownEl.textContent = "Click Connect to start";
+            countdownEl.className = "hint";
+        }
     }
 
     renderQR();
@@ -108,9 +114,11 @@ function startTimer(expireTimestamp) {
         }
         const m = Math.floor(remain / 60000);
         const s = Math.floor((remain % 60000) / 1000);
-        const text = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
-        countdownEl.textContent = text;
-        countdownEl.style.color = "#60a5fa";
+        state.countdownText = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+        countdownEl.textContent = state.countdownText;
+        if (state.gateway && !state.expired) {
+            countdownEl.className = "";
+        }
     }, 1000);
 }
 

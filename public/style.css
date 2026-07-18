@@ -139,7 +139,28 @@ h1 {
 
 #countdown {
     font-family: monospace;
-    font-size: 18px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #60a5fa;
+    transition: color 0.3s ease, font-size 0.3s ease;
+}
+
+#countdown.hint {
+    font-size: 14px;
+    font-weight: 400;
+    color: #94a3b8;
+}
+
+#countdown.waiting {
+    font-size: 16px;
+    font-weight: 500;
+    color: #f59e0b;
+}
+
+#countdown.expired {
+    font-size: 16px;
+    font-weight: 600;
+    color: #ef4444;
 }
 
 button {
