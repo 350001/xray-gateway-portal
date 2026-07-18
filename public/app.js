@@ -38,8 +38,8 @@ function updateUI() {
         btn.disabled = false;
     }
 
-    const data = state.gateway || {};
-    ["user", "password", "path"].forEach(k => $(k).textContent = data[k] || "-");
+    const link = state.gateway?.link || "N/A";
+    $("config-link").textContent = link;
 
     if (isReady) {
         timerLabel.textContent = "Expires in:";
@@ -84,7 +84,7 @@ async function loadGateway() {
         state.expired = false;
         clearInterval(state.timer);
         state.timer = null;
-        countdownEl.textContent = "--";
+        countdownEl.textContent = "Unavailable";
         updateUI();
         return false;
     }
