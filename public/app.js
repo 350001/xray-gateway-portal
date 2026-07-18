@@ -7,6 +7,7 @@ const state = { gateway: null, timer: null, pollingTimer: null, attempts: 0, exp
 const $ = id => document.getElementById(id);
 const timerLabel = document.querySelector('.timer span:first-child');
 const countdownEl = $("countdown");
+const qrBox = $("qrcode");
 
 function updateUI() {
     const isReady = !!state.gateway && !state.expired;
@@ -53,20 +54,16 @@ function updateUI() {
 }
 
 function renderQR() {
-    const box = $("qrcode");
-    const hasGateway = !!state.gateway;
+    const isReady = !!state.gateway && !state.expired;
 
-    if (hasGateway && !state.expired) {
-        box.innerHTML = "";
-        new QRCode(box, { text: state.gateway.link, width: 220, height: 220 });
-        box.style.filter = 'none';
-        box.style.opacity = '1';
-    } else if (hasGateway && state.expired) {
-        box.style.filter = 'blur(6px)';
-        box.style.opacity = '0.7';
+    if (isReady) {
+        if (!qrBox.querySelector('canvas')) {
+            qrBox.innerHTML = "";
+            new QRCode(qrBox, { text: state.gateway.link, width: 220, height: 220 });
+        }
+        qrBox.classList.add('active');
     } else {
-        box.style.filter = 'blur(6px)';
-        box.style.opacity = '0.7';
+        qrBox.classList.remove('active');
     }
 }
 
@@ -129,7 +126,7 @@ async function start() {
     state.timer = null;
     clearTimeout(state.pollingTimer);
     state.pollingTimer = null;
-    
+
     state.attempts = 0;
     state.gateway = null;
     state.expired = false;

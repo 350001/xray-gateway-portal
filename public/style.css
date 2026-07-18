@@ -79,8 +79,14 @@ h1 {
     line-height: 0;
     min-height: 220px;
     min-width: 220px;
-		filter:blur(6px);
-		opacity:'0.7';
+    filter: blur(6px);
+    opacity: 0.7;
+    transition: filter 0.3s ease, opacity 0.3s ease;
+}
+
+#qrcode.active {
+    filter: none;
+    opacity: 1;
 }
 
 #qrcode img,
