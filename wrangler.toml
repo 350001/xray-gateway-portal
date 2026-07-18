@@ -1,4 +1,4 @@
-name = "xray-gateway"
+name = "xray-gateway-portal"
 main = "src/index.js"
 compatibility_date = "2026-07-15"
 
