@@ -5,7 +5,7 @@ const POLL_INTERVAL = 5000;
 
 const state = { gateway: null, timer: null, pollingTimer: null, attempts: 0, expired: false };
 const $ = id => document.getElementById(id);
-const timerLabel = document.querySelector('.timer span:first-child');
+const timerLabel = $("timerLabel");
 const countdownEl = $("countdown");
 const qrBox = $("qrcode");
 
@@ -44,9 +44,13 @@ function updateUI() {
     if (isReady) {
         timerLabel.textContent = "Expires in:";
         countdownEl.style.color = "#60a5fa";
+    } else if (isWaiting) {
+        timerLabel.textContent = "Status:";
+        countdownEl.textContent = `Waiting... (${state.attempts}/${MAX_POLL})`;
+        countdownEl.style.color = "#f59e0b";
     } else {
         timerLabel.textContent = "Status:";
-        countdownEl.textContent = state.expired ? "Expired" : "--";
+        countdownEl.textContent = state.expired ? "Expired" : "Click Connect to start";
         countdownEl.style.color = state.expired ? "#ef4444" : "#94a3b8";
     }
 
@@ -84,7 +88,6 @@ async function loadGateway() {
         state.expired = false;
         clearInterval(state.timer);
         state.timer = null;
-        countdownEl.textContent = "Unavailable";
         updateUI();
         return false;
     }
@@ -107,6 +110,7 @@ function startTimer(expireTimestamp) {
         const s = Math.floor((remain % 60000) / 1000);
         const text = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
         countdownEl.textContent = text;
+        countdownEl.style.color = "#60a5fa";
     }, 1000);
 }
 

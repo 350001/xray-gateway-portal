@@ -96,13 +96,6 @@ h1 {
     display: block;
 }
 
-.loading {
-    padding: 20px;
-    color: #94a3b8;
-    line-height: normal;
-    text-align: center;
-}
-
 .info {
     margin-top: 22px;
     padding: 15px;
