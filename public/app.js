@@ -9,6 +9,10 @@ const timerLabel = $("timerLabel");
 const countdownEl = $("countdown");
 const qrBox = $("qrcode");
 
+function initQR() {
+    new QRCode(qrBox, { text: "unavailable", width: 220, height: 220 });
+}
+
 function updateUI() {
     const isReady = !!state.gateway && !state.expired;
     const isWaiting = !!state.pollingTimer;
@@ -57,16 +61,7 @@ function updateUI() {
         countdownEl.style.color = "#94a3b8";
     }
 
-    renderQR();
-}
-
-function renderQR() {
-    const isReady = !!state.gateway && !state.expired;
     if (isReady) {
-        if (!qrBox.querySelector('canvas')) {
-            qrBox.innerHTML = "";
-            new QRCode(qrBox, { text: state.gateway.link, width: 220, height: 220 });
-        }
         qrBox.classList.add('active');
     } else {
         qrBox.classList.remove('active');
@@ -81,6 +76,8 @@ async function loadGateway() {
         if (data.expire_timestamp * 1000 <= Date.now()) throw new Error();
         state.gateway = data;
         state.expired = false;
+        qrBox.innerHTML = "";
+        new QRCode(qrBox, { text: data.link, width: 220, height: 220 });
         startTimer(data.expire_timestamp);
         updateUI();
         toast("✅ Gateway ready");
@@ -193,5 +190,6 @@ function cleanup() {
     clearTimeout(state.pollingTimer);
 }
 
+initQR();
 loadGateway();
 window.addEventListener('beforeunload', cleanup);

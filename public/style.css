@@ -8,7 +8,7 @@ body {
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    padding-top: 4vh;
+    padding-top: 5vh;
     background:
         radial-gradient(circle at top, #2563eb55, transparent 40%),
         #020617;
