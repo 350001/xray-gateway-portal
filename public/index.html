@@ -49,19 +49,7 @@
 
     </div>
 
-    <script>
-        (function loadQRCode() {
-            if (typeof QRCode !== 'undefined') return;
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js';
-            script.onerror = function() {
-                const localScript = document.createElement('script');
-                localScript.src = '/libs/qrcode.min.js';
-                document.head.appendChild(localScript);
-            };
-            document.head.appendChild(script);
-        })();
-    </script>
+    <script src="/libs/qrcode.min.js"></script>
     <script src="/app.js"></script>
 
 </body>
