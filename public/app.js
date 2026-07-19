@@ -3,9 +3,8 @@ const START_URL = "/start";
 const MAX_POLL = 30;
 const POLL_INTERVAL = 5000;
 
-const state = { gateway: null, timer: null, pollingTimer: null, attempts: 0, expired: false };
+const state = { gateway: null, timer: null, pollingTimer: null, attempts: 0 };
 const $ = id => document.getElementById(id);
-const timerLabel = $("timerLabel");
 const countdownEl = $("countdown");
 const qrBox = $("qrcode");
 
@@ -14,57 +13,44 @@ function initQR() {
 }
 
 function updateUI() {
-    const isReady = !!state.gateway && !state.expired;
+    const isReady = !!state.gateway;
     const isWaiting = !!state.pollingTimer;
+    const sticon = $("statusIcon");
+    const sttext = $("statusText");
+    const timerLabel = $("timerLabel");
     const btn = $("actionButton");
-
-    if (isReady) {
-        $("statusIcon").textContent = "🟢";
-        $("statusText").textContent = "Active";
-    } else if (isWaiting) {
-        $("statusIcon").textContent = "🟡";
-        $("statusText").textContent = `Waiting... (${state.attempts}/${MAX_POLL})`;
-    } else {
-        $("statusIcon").textContent = "🔴";
-        $("statusText").textContent = state.expired ? "Expired" : "Unavailable";
-    }
-
-    if (isReady) {
-        btn.textContent = "Copy Config";
-        btn.onclick = copyConfig;
-        btn.disabled = false;
-    } else if (isWaiting) {
-        btn.textContent = "Starting...";
-        btn.disabled = true;
-    } else {
-        btn.textContent = "Connect";
-        btn.onclick = start;
-        btn.disabled = false;
-    }
-
     const link = state.gateway?.link || "N/A";
+
     $("config-link").textContent = link;
 
     if (isReady) {
+        sticon.textContent = "🟢";
+        sttext.textContent = "Active";
+        qrBox.classList.add("active");
         timerLabel.textContent = "Expires in:";
         countdownEl.style.color = "#60a5fa";
-        if (!state.timer) {
-            countdownEl.textContent = "--";
-        }
-    } else if (state.expired) {
-        timerLabel.textContent = "Status:";
-        countdownEl.textContent = "Expired";
-        countdownEl.style.color = "#ef4444";
-    } else {
-        timerLabel.textContent = "Status:";
-        countdownEl.textContent = "--";
-        countdownEl.style.color = "#94a3b8";
+        btn.textContent = "Copy Config";
+        btn.onclick = copyConfig;
+        btn.disabled = false;
+        return;
     }
 
-    if (isReady) {
-        qrBox.classList.add('active');
+    qrBox.classList.remove("active");
+    timerLabel.textContent = "Status:";
+    countdownEl.textContent = "--";
+    countdownEl.style.color = "#94a3b8";
+
+    if (isWaiting) {
+        sticon.textContent = "🟡";
+        sttext.textContent = `Waiting... (${state.attempts}/${MAX_POLL})`;
+        btn.textContent = "Starting...";
+        btn.disabled = true;
     } else {
-        qrBox.classList.remove('active');
+        sticon.textContent = "🔴";
+        sttext.textContent = "Unavailable";
+        btn.textContent = "Connect";
+        btn.onclick = start;
+        btn.disabled = false;
     }
 }
 
@@ -75,7 +61,6 @@ async function loadGateway() {
         const data = await res.json();
         if (data.expire_timestamp * 1000 <= Date.now()) throw new Error();
         state.gateway = data;
-        state.expired = false;
         qrBox.innerHTML = "";
         new QRCode(qrBox, { text: data.link, width: 220, height: 220 });
         startTimer(data.expire_timestamp);
@@ -84,7 +69,6 @@ async function loadGateway() {
         return true;
     } catch {
         state.gateway = null;
-        state.expired = false;
         clearInterval(state.timer);
         state.timer = null;
         updateUI();
@@ -101,7 +85,6 @@ function startTimer(expireTimestamp) {
             clearInterval(state.timer);
             state.timer = null;
             state.gateway = null;
-            state.expired = true;
             updateUI();
             toast("⏳ Gateway expired");
             return;
@@ -110,14 +93,14 @@ function startTimer(expireTimestamp) {
         const s = Math.floor((remain % 60000) / 1000);
         const text = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
         countdownEl.textContent = text;
-        if (state.gateway && !state.expired) {
+        if (state.gateway) {
             countdownEl.style.color = "#60a5fa";
         }
     }, 1000);
 }
 
 async function copyConfig() {
-    if (!state.gateway || state.expired) return;
+    if (!state.gateway) return;
     try {
         await navigator.clipboard.writeText(state.gateway.link);
         toast("✅ Copied");
@@ -135,7 +118,6 @@ async function start() {
 
     state.attempts = 0;
     state.gateway = null;
-    state.expired = false;
     updateUI();
     toast("⏳ Starting gateway...");
 
@@ -176,7 +158,7 @@ async function poll() {
 }
 
 function toast(msg) {
-    const old = document.querySelector('.toast');
+    const old = document.querySelector(".toast");
     if (old) old.remove();
     const div = document.createElement("div");
     div.className = "toast";
@@ -192,4 +174,4 @@ function cleanup() {
 
 initQR();
 loadGateway();
-window.addEventListener('beforeunload', cleanup);
+window.addEventListener("beforeunload", cleanup);
