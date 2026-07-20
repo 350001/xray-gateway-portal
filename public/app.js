@@ -7,6 +7,7 @@ const state = { gateway: null, timer: null, pollingTimer: null, attempts: 0 };
 const $ = id => document.getElementById(id);
 const countdownEl = $("countdown");
 const qrBox = $("qrcode");
+const btn = $("actionButton");
 
 function initQR() {
     new QRCode(qrBox, { text: "unavailable", width: 220, height: 220 });
@@ -18,7 +19,6 @@ function updateUI() {
     const sticon = $("statusIcon");
     const sttext = $("statusText");
     const timerLabel = $("timerLabel");
-    const btn = $("actionButton");
     const link = state.gateway?.link || "N/A";
 
     $("config-link").textContent = link;
@@ -131,7 +131,6 @@ async function start() {
             throw new Error(`HTTP ${res.status}`);
         }
     } catch {
-			  btn.disabled = false;
         toast("❌ Start failed");
         $("statusText").textContent = "❌ Start failed";
         setTimeout(() => updateUI(), 3000);
