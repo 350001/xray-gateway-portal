@@ -111,7 +111,8 @@ async function copyConfig() {
 }
 
 async function start() {
-    if (state.pollingTimer) return;
+    if (state.pollingTimer || btn.disabled) return;
+    btn.disabled = true;
     clearInterval(state.timer);
     state.timer = null;
     clearTimeout(state.pollingTimer);
@@ -130,6 +131,7 @@ async function start() {
             throw new Error(`HTTP ${res.status}`);
         }
     } catch {
+			  btn.disabled = false;
         toast("❌ Start failed");
         $("statusText").textContent = "❌ Start failed";
         setTimeout(() => updateUI(), 3000);
