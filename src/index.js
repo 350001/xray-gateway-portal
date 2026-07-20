@@ -1,15 +1,14 @@
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env) {
     const url = new URL(request.url);
-    const path = url.pathname;
-
-    // 只处理 POST /start
-    if (path === '/start' && request.method === 'POST') {
+    if (url.pathname === '/start' && request.method === 'POST') {
       return handleStart(request, env);
     }
-
-    // 其他所有请求（包括 /api/gateway.json 静态文件）由 ASSETS 处理
-    //return env.ASSETS.fetch(request);
+    try {
+      return await env.ASSETS.fetch(request);
+    } catch {
+      return new Response('Not Found', { status: 404 });
+    }
   }
 };
 
