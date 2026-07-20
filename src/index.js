@@ -1,14 +1,12 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    // 因为配置已限定只有 /start 会进入，此处可不再判断路径，但保留双重保险
     if (url.pathname === '/start' && request.method === 'POST') {
       return handleStart(request, env);
     }
-    try {
-      return await env.ASSETS.fetch(request);
-    } catch {
-      return new Response('Not Found', { status: 404 });
-    }
+    // 其他路径按理不会进入，但为了安全，返回 404
+    return new Response('Not Found', { status: 404 });
   }
 };
 
