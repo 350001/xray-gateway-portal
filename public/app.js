@@ -7,7 +7,6 @@ const state = { gateway: null, timer: null, pollingTimer: null, attempts: 0 };
 const $ = id => document.getElementById(id);
 const countdownEl = $("countdown");
 const qrBox = $("qrcode");
-const btn = $("actionButton");
 
 function initQR() {
     new QRCode(qrBox, { text: "unavailable", width: 220, height: 220 });
@@ -18,8 +17,9 @@ function updateUI() {
     const isWaiting = !!state.pollingTimer;
     const sticon = $("statusIcon");
     const sttext = $("statusText");
-    const timerLabel = $("timerLabel");
     const link = state.gateway?.link || "N/A";
+    const timerLabel = $("timerLabel");
+    const btn = $("actionButton");
 
     $("config-link").textContent = link;
 
@@ -60,7 +60,7 @@ async function loadGateway() {
         if (!res.ok) throw new Error();
         const data = await res.json();
         if (data.expire_timestamp * 1000 <= Date.now()) throw new Error();
-				if (data.link) {data.link = atob(data.link);}
+        if (data.link) { data.link = atob(data.link); }
         state.gateway = data;
         qrBox.innerHTML = "";
         new QRCode(qrBox, { text: data.link, width: 220, height: 220 });
@@ -111,8 +111,11 @@ async function copyConfig() {
 }
 
 async function start() {
-    if (state.pollingTimer || btn.disabled) return;
-    btn.disabled = true;
+    if (state.pollingTimer) return;
+
+    state.pollingTimer = { placeholder: true };
+    updateUI();
+
     clearInterval(state.timer);
     state.timer = null;
     clearTimeout(state.pollingTimer);
@@ -120,7 +123,6 @@ async function start() {
 
     state.attempts = 0;
     state.gateway = null;
-    updateUI();
     toast("⏳ Starting gateway...");
 
     try {
@@ -133,6 +135,8 @@ async function start() {
     } catch {
         toast("❌ Start failed");
         $("statusText").textContent = "❌ Start failed";
+        state.pollingTimer = null;
+        updateUI();
         setTimeout(() => updateUI(), 3000);
     }
 }
