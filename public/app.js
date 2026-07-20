@@ -60,10 +60,10 @@ async function loadGateway() {
         if (!res.ok) throw new Error();
         const data = await res.json();
         if (data.expire_timestamp * 1000 <= Date.now()) throw new Error();
+				if (data.link) {data.link = atob(data.link);}
         state.gateway = data;
-        const link = atob(data.link);
         qrBox.innerHTML = "";
-        new QRCode(qrBox, { text: link, width: 220, height: 220 });
+        new QRCode(qrBox, { text: data.link, width: 220, height: 220 });
         startTimer(data.expire_timestamp);
         updateUI();
         toast("✅ Gateway ready");
