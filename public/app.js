@@ -124,8 +124,11 @@ async function start() {
 
     try {
         const res = await fetch(START_URL, { method: "POST" });
-        if (!res.ok) throw new Error();
-        startPolling();
+        if (res.status === 200 || res.status === 409) {
+            startPolling();
+        } else {
+            throw new Error(`HTTP ${res.status}`);
+        }
     } catch {
         toast("❌ Start failed");
         $("statusText").textContent = "❌ Start failed";
