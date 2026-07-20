@@ -5,7 +5,7 @@ compatibility_date = "2026-07-15"
 [assets]
 directory = "./public"
 run_worker_first = ["/start"]
-not_found_handling = "404"
+not_found_handling = "404-page"
 
 [vars]
 GITHUB_OWNER = "350001"
